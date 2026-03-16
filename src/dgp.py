@@ -107,3 +107,19 @@ def g_star(X: np.ndarray, terms: list[dict]) -> np.ndarray:
 
 def propensity_score(X:np.ndarray, terms: list[dict], alpha_d: float, s: float = 1, c=0) -> np.ndarray:
     return expit(c + alpha_d*s*g_star(X, terms))
+
+def generate_treatment(
+    X: np.ndarray,
+    terms: list[dict],
+    alpha_d: float,
+    s: float = 1.0,
+    c: float = 0.0,
+    seed: int | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    
+    e = propensity_score(X, terms, alpha_d=alpha_d, s=s, c=c)
+
+    rng = np.random.default_rng(seed)
+    D = rng.binomial(1, e)
+
+    return D, e
