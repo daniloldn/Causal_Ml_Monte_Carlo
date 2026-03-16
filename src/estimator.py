@@ -64,4 +64,5 @@ def estimate_dml(
         "tau_hat": tau_hat,
         "se": se,
         "ci_lower": ci_lower,
+        "ci_upper": ci_upper
     }
