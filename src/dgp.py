@@ -123,3 +123,39 @@ def generate_treatment(
     D = rng.binomial(1, e)
 
     return D, e
+
+
+def generate_dataset(config: dict, alpha_y: float, alpha_d: float, seed: int):
+
+    #setting seed
+    rng = np.random.default_rng(seed)
+
+    #generating X
+    X = generate_covariates(config["sample_size"], config["num_covariates"], config["X_std"],seed=seed+1)
+
+    #generating f(x)
+    f_x = f_alpha(X, alpha_y, config["linear_weights"], config["nonlinear_terms"] )
+
+    #generating treatment
+    treatment, e = generate_treatment(X, config["propensity_terms"],
+                                   alpha_d, config["propensity_scale_param"],
+                                     config["intercept"], seed=seed+2)
+    
+    #generating epislion
+    eps = rng.normal(0, config["noise_std"], config["sample_size"])
+
+    #tau
+    tau = config["treatment_effect"]
+
+    #generating y
+    y = tau * treatment + f_x + eps
+
+    return {
+    "X": X,
+    "D": treatment,
+    "Y": y,
+    "tau_true": tau,
+    "e": e,
+    "f_alpha": f_x,
+    "epsilon": eps
+}
