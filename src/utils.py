@@ -1,7 +1,7 @@
 import yaml
 from pathlib import Path
 
-PATH = Path("configs")
+PATH = Path().cwd().parent/"configs"
 
 def load_config(name:str):
 

@@ -57,5 +57,7 @@ def f_nonlinear(X: np.ndarray, terms: list[dict]) -> np.ndarray:
     return out
     
 
-def f_alpha(X: np.ndarray, alpha_y: float) -> np.ndarray:
-    return (1 - alpha_y) * f_linear(X) + alpha_y * f_nonlinear(X)
+def f_alpha(X: np.ndarray, alpha_y: float, linear_weights: list[float], nonlinear_terms: list[dict]) -> np.ndarray:
+    f_lin = f_linear(X, linear_weights)
+    f_nonlin = f_nonlinear(X, nonlinear_terms)
+    return (1 - alpha_y) * f_lin + alpha_y * f_nonlin
