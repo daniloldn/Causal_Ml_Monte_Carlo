@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.special import expit
 
 
 def generate_covariates(n:int, p:int, sigma:float = 1, seed:int = 42)-> np.ndarray:
@@ -61,3 +62,48 @@ def f_alpha(X: np.ndarray, alpha_y: float, linear_weights: list[float], nonlinea
     f_lin = f_linear(X, linear_weights)
     f_nonlin = f_nonlinear(X, nonlinear_terms)
     return (1 - alpha_y) * f_lin + alpha_y * f_nonlin
+
+
+def g_raw(X: np.ndarray, terms: list[dict]) -> np.ndarray:
+    
+    n = X.shape[0]
+    out = np.zeros(n)
+
+    for term in terms:
+        term_type = term["type"]
+        weight = term["weight"]
+
+        if term_type == "square":
+            col = term["col"]
+            center = term.get("center", 0.0)
+            out += weight * (X[:, col] ** 2 - center)
+
+        elif term_type == "linear":
+            col = term["col"]
+            out += weight * (X[:, col])
+
+        elif term_type == "interaction":
+            c1, c2 = term["cols"]
+            out += weight * (X[:, c1] * X[:, c2])
+
+        elif term_type == "sin":
+            col = term["col"]
+            out += weight * np.sin(X[:, col])
+
+        elif term_type == "abs":
+            col = term["col"]
+            center = term.get("center", 0.0)
+            out += weight * (np.abs(X[:, col]) - center)
+
+        else:
+            raise ValueError(f"Unsupported nonlinear term type: {term_type}")
+
+    return out
+
+def g_star(X: np.ndarray, terms: list[dict]) -> np.ndarray:
+    g = g_raw(X, terms)
+    return (g - np.mean(g)) / np.std(g)
+
+
+def propensity_score(X:np.ndarray, terms: list[dict], alpha_d: float, s: float = 1, c=0) -> np.ndarray:
+    return expit(c + alpha_d*s*g_star(X, terms))
