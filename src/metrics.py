@@ -62,3 +62,40 @@ def summarize_df(df: pd.DataFrame) -> pd.DataFrame:
         summary_df = pd.concat(scenario_summaries, ignore_index=True)
         
     return summary_df
+
+
+def rmse_diff(df: pd.DataFrame) -> pd.DataFrame:
+
+    rmse_wide = df.pivot_table(
+    index=["alpha_y", "alpha_d"],
+    columns="estimator",
+    values="rmse"
+    ).reset_index()
+
+    rmse_wide["rmse_diff"] = rmse_wide["OLS"] - rmse_wide["DML"]
+
+    return rmse_wide
+
+
+def bias(df: pd.DataFrame) -> pd.DataFrame:
+
+    bias_wide = df.pivot_table(
+    index=["alpha_y", "alpha_d"],
+    columns="estimator",
+    values="bias"
+    ).reset_index()
+
+    return bias_wide
+
+def sd(df: pd.DataFrame) -> pd.DataFrame:
+
+
+    sd = df.pivot_table(
+    index=["alpha_y", "alpha_d"],
+    columns="estimator",
+    values="sd"
+    ).reset_index()
+
+    return sd
+
+
