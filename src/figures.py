@@ -1,7 +1,7 @@
 import plotly.express as px
 import pandas as pd
 
-from src.metrics import rmse_diff, bias
+from src.metrics import rmse_diff, bias, sd
 
 
 
@@ -76,7 +76,6 @@ def bias_ols(df: pd.DataFrame) -> pd.DataFrame:
 
     return None
 
-
 def bias_dml(df: pd.DataFrame) -> pd.DataFrame:
 
     bias_dml = bias(df)
@@ -103,6 +102,74 @@ def bias_dml(df: pd.DataFrame) -> pd.DataFrame:
         tickmode='array',
         tickvals=bias_dml.index,
         ticktext=[str(y) for y in bias_dml.index]
+    )
+    )
+
+    fig.show()
+
+    return None
+
+
+def sd_dml(df: pd.DataFrame) -> pd.DataFrame:
+
+    sd_dml = sd(df)
+
+    fig = px.density_heatmap(sd_dml,
+                         y= "alpha_y",
+                         x = "alpha_d", 
+                         z = "DML")
+
+
+    fig.update_layout(
+    xaxis_title="alpha_d",
+    yaxis_title="alpha_y",
+    coloraxis_colorbar_title="SD DML"
+    )
+
+    fig.update_layout(
+    xaxis=dict(
+        tickmode='array',
+        tickvals=sd_dml.columns,
+        ticktext=[str(x) for x in sd_dml.columns]
+    ),
+    yaxis=dict(
+        tickmode='array',
+        tickvals=sd_dml.index,
+        ticktext=[str(y) for y in sd_dml.index]
+    )
+    )
+
+    fig.show()
+
+    return None
+
+
+def sd_ols(df: pd.DataFrame) -> pd.DataFrame:
+
+    sd_ols = sd(df)
+
+    fig = px.density_heatmap(sd_ols,
+                         y= "alpha_y",
+                         x = "alpha_d", 
+                         z = "OLS")
+
+
+    fig.update_layout(
+    xaxis_title="alpha_d",
+    yaxis_title="alpha_y",
+    coloraxis_colorbar_title="SD OLS"
+    )
+
+    fig.update_layout(
+    xaxis=dict(
+        tickmode='array',
+        tickvals=sd_ols.columns,
+        ticktext=[str(x) for x in sd_ols.columns]
+    ),
+    yaxis=dict(
+        tickmode='array',
+        tickvals=sd_ols.index,
+        ticktext=[str(y) for y in sd_ols.index]
     )
     )
 
