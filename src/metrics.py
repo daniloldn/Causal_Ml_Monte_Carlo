@@ -98,4 +98,15 @@ def sd(df: pd.DataFrame) -> pd.DataFrame:
 
     return sd
 
+def coverage(df: pd.DataFrame) -> pd.DataFrame:
+
+
+    coverage = df.pivot_table(
+    index=["alpha_y", "alpha_d"],
+    columns="estimator",
+    values="coverage"
+    ).reset_index()
+
+    return coverage
+
 

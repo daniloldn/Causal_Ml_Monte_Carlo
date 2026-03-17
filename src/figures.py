@@ -1,7 +1,7 @@
 import plotly.express as px
 import pandas as pd
 
-from src.metrics import rmse_diff, bias, sd
+from src.metrics import rmse_diff, bias, sd, coverage
 
 
 
@@ -177,4 +177,69 @@ def sd_ols(df: pd.DataFrame) -> pd.DataFrame:
 
     return None
 
+def coverage_dml(df: pd.DataFrame) -> pd.DataFrame:
 
+    dml = coverage(df)
+
+    fig = px.density_heatmap(dml,
+                         y= "alpha_y",
+                         x = "alpha_d", 
+                         z = "DML")
+
+
+    fig.update_layout(
+    xaxis_title="alpha_d",
+    yaxis_title="alpha_y",
+    coloraxis_colorbar_title="Coverage DML"
+    )
+
+    fig.update_layout(
+    xaxis=dict(
+        tickmode='array',
+        tickvals=dml.columns,
+        ticktext=[str(x) for x in dml.columns]
+    ),
+    yaxis=dict(
+        tickmode='array',
+        tickvals=dml.index,
+        ticktext=[str(y) for y in dml.index]
+    )
+    )
+
+    fig.show()
+
+    return None
+
+
+def coverage_ols(df: pd.DataFrame) -> pd.DataFrame:
+
+    ols = coverage(df)
+
+    fig = px.density_heatmap(sd_ols,
+                         y= "alpha_y",
+                         x = "alpha_d", 
+                         z = "OLS")
+
+
+    fig.update_layout(
+    xaxis_title="alpha_d",
+    yaxis_title="alpha_y",
+    coloraxis_colorbar_title="Coverage OLS"
+    )
+
+    fig.update_layout(
+    xaxis=dict(
+        tickmode='array',
+        tickvals=ols.columns,
+        ticktext=[str(x) for x in ols.columns]
+    ),
+    yaxis=dict(
+        tickmode='array',
+        tickvals=ols.index,
+        ticktext=[str(y) for y in ols.index]
+    )
+    )
+
+    fig.show()
+
+    return None
