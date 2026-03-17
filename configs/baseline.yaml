@@ -2,15 +2,15 @@ sample_size: 500
 num_covariates: 20
 treatment_effect: 2.5
 X_std : 1
-alpha_y_grid: [0, 1]
-alpha_d_grid: [0, 1]
+alpha_y_grid: [0,0.25, 0.5, 0.75,  1]
+alpha_d_grid: [0,0.25, 0.5, 0.75,  1]
 noise_std: 1
 linear_weights: [0.8, 0.6, 0.4, 0.2, 0.5]
 nonlinear_terms: [{"type": "square", "col": 0, "weight": 0.8, "center": 1.0},{"type": "interaction", "cols": [1, 2], "weight": 0.6},{"type": "sin", "col": 3, "weight": 0.5},{"type": "abs", "col": 4, "weight": 0.3, "center": 0.7978845608}] 
 propensity_terms: [{"type": "linear", "col": 0, "weight": 0.3},{"type": "linear", "col": 1, "weight": -0.5},{"type": "interaction", "cols": [2,3], "weight": 0.4},{"type": "square", "col": 4, "weight": -0.4, "center": 1}] 
 intercept: 0
 propensity_scale_param : 1
-num_replications: 50
+num_replications: 500
 random_seed: 42
 k_fold_splits: 3
 outcome_learner: "random_forest"

@@ -5,7 +5,7 @@ from src.metrics import rmse_diff, bias, sd, coverage
 
 
 
-def rmse_frontier(df: pd.Dataframe):
+def rmse_frontier(df: pd.DataFrame):
 
     rmse = rmse_diff(df)
 
