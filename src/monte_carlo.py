@@ -4,10 +4,13 @@ from src.dgp import generate_dataset
 import pandas as pd
 from tqdm import tqdm
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import os
 
 
-def one_replication(config, alpha_y, alpha_d, seed):
-    data = generate_dataset(config, alpha_y=alpha_y, alpha_d=alpha_d, seed=seed)
+
+def one_replication(config, alpha_y, alpha_d, kappa, seed):
+    data = generate_dataset(config, alpha_y=alpha_y, alpha_d=alpha_d, kappa=kappa, seed=seed)
 
     ols_res = estimate_ols(data["X"], data["D"], data["Y"])
     
@@ -30,7 +33,7 @@ def one_replication(config, alpha_y, alpha_d, seed):
 
 
 
-def run_scenario(config: dict, alpha_y: float, alpha_d: float) -> pd.DataFrame:
+def run_scenario(config: dict, alpha_y: float, alpha_d: float, kappa:float) -> pd.DataFrame:
     results = []
 
     base_seed = config["random_seed"]
@@ -38,7 +41,7 @@ def run_scenario(config: dict, alpha_y: float, alpha_d: float) -> pd.DataFrame:
 
     for r in tqdm(range(R), desc=f"alpha_y={alpha_y}, alpha_d={alpha_d}"):
         seed = base_seed + r
-        row = one_replication(config, alpha_y=alpha_y, alpha_d=alpha_d, seed=seed)
+        row = one_replication(config, alpha_y=alpha_y, alpha_d=alpha_d, kappa=kappa, seed=seed)
         row["replication"] = r
         results.append(row)
 
@@ -52,12 +55,13 @@ def run_simulation_grid(config: dict, save_each: bool = True) -> pd.DataFrame:
 
     for alpha_y in config["alpha_y_grid"]:
         for alpha_d in config["alpha_d_grid"]:
-            scenario_df = run_scenario(config, alpha_y=alpha_y, alpha_d=alpha_d)
-            all_results.append(scenario_df)
+            for kappa in config["kappa"]:
+                scenario_df = run_scenario(config, alpha_y=alpha_y, alpha_d=alpha_d, kappa=kappa)
+                all_results.append(scenario_df)
 
-            if save_each:
-                filename = output_dir / f"alpha_y_{alpha_y}_alpha_d_{alpha_d}.csv"
-                scenario_df.to_csv(filename, index=False)
+                if save_each:
+                    filename = output_dir / f"alpha_y_{alpha_y}_alpha_d_{alpha_d}_kappa{kappa}.csv"
+                    scenario_df.to_csv(filename, index=False)
 
     full_df = pd.concat(all_results, ignore_index=True)
     return full_df

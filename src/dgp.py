@@ -9,7 +9,7 @@ def generate_covariates(n:int, p:int, sigma:float = 1, seed:int = 42)-> np.ndarr
     vcov = np.identity(p) * sigma**2
 
     #mu
-    mu = mu = np.zeros(p)
+    mu = np.zeros(p)
 
     #multivarite normal
     rng = np.random.default_rng(seed)
@@ -98,7 +98,7 @@ def generate_treatment(
     return D, e
 
 
-def generate_dataset(config: dict, alpha_y: float, alpha_d: float, seed: int):
+def generate_dataset(config: dict, alpha_y: float, alpha_d: float,kappa:float,  seed: int):
 
     #setting seed
     rng = np.random.default_rng(seed)
@@ -111,7 +111,7 @@ def generate_dataset(config: dict, alpha_y: float, alpha_d: float, seed: int):
 
     #generating treatment
     treatment, e = generate_treatment(X,
-                                   alpha_d, config["kappa"],
+                                   alpha_d, kappa,
                                      config["intercept"], seed=seed+2)
     
     #generating epislion
