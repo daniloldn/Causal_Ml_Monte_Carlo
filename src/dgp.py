@@ -64,60 +64,33 @@ def f_alpha(X: np.ndarray, alpha_y: float, linear_weights: list[float], nonlinea
     return (1 - alpha_y) * f_lin + alpha_y * f_nonlin
 
 
-def g_raw(X: np.ndarray, terms: list[dict]) -> np.ndarray:
-    
-    n = X.shape[0]
-    out = np.zeros(n)
+def g_simple(X):
+    return X[:, 0]
 
-    for term in terms:
-        term_type = term["type"]
-        weight = term["weight"]
+def g_complex(X):
+    return np.sin(X[:, 0]) +  0.5 * (X[:, 1] ** 2 - 1)
 
-        if term_type == "square":
-            col = term["col"]
-            center = term.get("center", 0.0)
-            out += weight * (X[:, col] ** 2 - center)
+def g_raw(X: np.ndarray, alpha_d: float) -> np.ndarray:
+    return (1 - alpha_d) * g_simple(X) + alpha_d * g_complex(X)
 
-        elif term_type == "linear":
-            col = term["col"]
-            out += weight * (X[:, col])
 
-        elif term_type == "interaction":
-            c1, c2 = term["cols"]
-            out += weight * (X[:, c1] * X[:, c2])
-
-        elif term_type == "sin":
-            col = term["col"]
-            out += weight * np.sin(X[:, col])
-
-        elif term_type == "abs":
-            col = term["col"]
-            center = term.get("center", 0.0)
-            out += weight * (np.abs(X[:, col]) - center)
-
-        else:
-            raise ValueError(f"Unsupported nonlinear term type: {term_type}")
-
-    return out
-
-def g_star(X: np.ndarray, terms: list[dict]) -> np.ndarray:
-    g = g_raw(X, terms)
+def g_star(X: np.ndarray, alpha_d: float) -> np.ndarray:
+    g = g_raw(X, alpha_d)
     return (g - np.mean(g)) / np.std(g)
 
 
-def propensity_score(X:np.ndarray, terms: list[dict], alpha_d: float, s: float = 1, c=0) -> np.ndarray:
-    return expit(c + alpha_d*s*g_star(X, terms))
+def propensity_score(X:np.ndarray, alpha_d: float, k: float = 1, c=0) -> np.ndarray:
+    return expit(c + k*g_star(X, alpha_d))
 
 def generate_treatment(
     X: np.ndarray,
-    terms: list[dict],
     alpha_d: float,
-    s: float = 1.0,
+    k: float = 1.0,
     c: float = 0.0,
     seed: int | None = None
 ) -> tuple[np.ndarray, np.ndarray]:
     
-    e = propensity_score(X, terms, alpha_d=alpha_d, s=s, c=c)
+    e = propensity_score(X, alpha_d=alpha_d, k=k, c=c)
 
     rng = np.random.default_rng(seed)
     D = rng.binomial(1, e)
@@ -137,8 +110,8 @@ def generate_dataset(config: dict, alpha_y: float, alpha_d: float, seed: int):
     f_x = f_alpha(X, alpha_y, config["linear_weights"], config["nonlinear_terms"] )
 
     #generating treatment
-    treatment, e = generate_treatment(X, config["propensity_terms"],
-                                   alpha_d, config["propensity_scale_param"],
+    treatment, e = generate_treatment(X,
+                                   alpha_d, config["kappa"],
                                      config["intercept"], seed=seed+2)
     
     #generating epislion
