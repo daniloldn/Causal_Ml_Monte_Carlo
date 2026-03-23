@@ -3,6 +3,7 @@ from src.dgp import generate_dataset
 from src.utils import load_config
 
 import pandas as pd
+import numpy as np
 import pyarrow
 from tqdm import tqdm
 from pathlib import Path
@@ -23,6 +24,8 @@ def one_replication(config, alpha_y, alpha_d, kappa, seed, replication):
         "alpha_d": alpha_d,
         "kappa": kappa, 
         "seed": seed,
+        "overlap": np.mean(data["e"] * (1 - data["e"])),
+        "residual_d_var": np.var(data["D"] - data["e"]),
         "replication": replication,
         "tau_true": data["tau_true"],
         "ols_tau_hat": ols_res["tau_hat"],
