@@ -1,245 +1,235 @@
-import plotly.express as px
+import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-from src.metrics import rmse_diff, bias, sd, coverage
+from src.metrics import (
+    rmse_diff_table,
+    bias_table,
+    sd_table,
+    coverage_table,
+)
 
 
+def _pivot_for_heatmap(df: pd.DataFrame, value_col: str, kappa: float) -> pd.DataFrame:
+    """
+    Filter to one kappa and return a pivot table with:
+    rows    = alpha_y
+    columns = alpha_d
+    values  = value_col
+    """
+    subset = df[df["kappa"] == kappa].copy()
+    if subset.empty:
+        raise ValueError(f"No rows found for kappa={kappa}")
 
-def rmse_frontier(df: pd.DataFrame):
+    pivot = (
+        subset.pivot(index="alpha_y", columns="alpha_d", values=value_col)
+        .sort_index()
+        .sort_index(axis=1)
+    )
+    return pivot
 
-    rmse = rmse_diff(df)
 
-    fig = px.density_heatmap(
-    rmse,
-    x="alpha_d",
-    y="alpha_y",
-    z="rmse_diff",
-    histfunc="avg",
-    color_continuous_scale="RdBu",
-    title="RMSE Difference: OLS - DML"
+def _single_heatmap(
+    pivot: pd.DataFrame,
+    title: str,
+    colorbar_title: str,
+    colorscale: str = "RdBu",
+    zmid: float | None = None,
+    text_round: int = 3,
+) -> go.Figure:
+    """
+    Build a single heatmap from a pivot table.
+    """
+    z = pivot.values
+    x_vals = list(pivot.columns)
+    y_vals = list(pivot.index)
+    text = np.round(z, text_round)
+
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=z,
+            x=x_vals,
+            y=y_vals,
+            colorscale=colorscale,
+            zmid=zmid,
+            text=text,
+            texttemplate="%{text}",
+            textfont={"size": 11},
+            colorbar=dict(title=colorbar_title),
+            hovertemplate=(
+                "alpha_d=%{x}<br>"
+                "alpha_y=%{y}<br>"
+                f"{colorbar_title}=%{{z:.4f}}<extra></extra>"
+            ),
+        )
     )
 
     fig.update_layout(
-    xaxis_title="alpha_d",
-    yaxis_title="alpha_y",
-    coloraxis_colorbar_title="RMSE diff"
+        title={"text": title, "x": 0.5},
+        xaxis=dict(
+            title="Treatment assignment complexity (alpha_d)",
+            tickmode="array",
+            tickvals=x_vals,
+            ticktext=[str(v) for v in x_vals],
+        ),
+        yaxis=dict(
+            title="Outcome nonlinearity (alpha_y)",
+            tickmode="array",
+            tickvals=y_vals,
+            ticktext=[str(v) for v in y_vals],
+        ),
     )
+
+    fig.update_yaxes(scaleanchor="x", scaleratio=1)
+    return fig
+
+
+def frontier_heatmap(summary_df: pd.DataFrame, kappa: float) -> go.Figure:
+    """
+    Heatmap of RMSE_OLS - RMSE_DML for one kappa.
+    Positive values mean DML has lower RMSE.
+    """
+    rmse_df = rmse_diff_table(summary_df)
+    pivot = _pivot_for_heatmap(rmse_df, "rmse_diff", kappa)
+    zmin = rmse_df["rmse_diff"].min()
+    zmax = rmse_df["rmse_diff"].max()
+
+    fig = _single_heatmap(
+        pivot=pivot,
+        title=f"Misspecification Frontier: OLS RMSE - DML RMSE (kappa={kappa})",
+        colorbar_title="RMSE diff",
+        colorscale="RdBu",
+        zmid=0,
+        zmin = zmin,
+        zmax=zmax,
+        text_round=3,
+    )
+    return fig
+
+
+def estimator_metric_heatmap(
+    summary_df: pd.DataFrame,
+    metric: str,
+    estimator: str,
+    kappa: float,
+) -> go.Figure:
+    """
+    Generic heatmap for one metric and one estimator at a given kappa.
+    """
+    metric_map = {
+        "bias": bias_table,
+        "sd": sd_table,
+        "coverage": coverage_table,
+    }
+
+    if metric not in metric_map:
+        raise ValueError(f"Unsupported metric: {metric}")
+    if estimator not in {"OLS", "DML"}:
+        raise ValueError("Estimator must be 'OLS' or 'DML'")
+
+    wide_df = metric_map[metric](summary_df)
+    pivot = _pivot_for_heatmap(wide_df, estimator, kappa)
+
+    title_map = {
+        "bias": f"Bias ({estimator}, kappa={kappa})",
+        "sd": f"Standard Deviation ({estimator}, kappa={kappa})",
+        "coverage": f"Coverage ({estimator}, kappa={kappa})",
+    }
+
+    colorbar_map = {
+        "bias": f"{estimator} bias",
+        "sd": f"{estimator} sd",
+        "coverage": f"{estimator} coverage",
+    }
+
+    colorscale_map = {
+        "bias": "RdBu",
+        "sd": "Blues",
+        "coverage": "Viridis",
+    }
+
+    zmid = 0 if metric == "bias" else None
+
+    fig = _single_heatmap(
+        pivot=pivot,
+        title=title_map[metric],
+        colorbar_title=colorbar_map[metric],
+        colorscale=colorscale_map[metric],
+        zmid=zmid,
+        text_round=3,
+    )
+    return fig
+
+
+def frontier_panels(summary_df: pd.DataFrame, kappas: list[float]) -> go.Figure:
+    """
+    1-row panel plot of frontier heatmaps for multiple kappa values.
+    """
+    rmse_df = rmse_diff_table(summary_df)
+
+    subplot_titles = [f"kappa={k}" for k in kappas]
+    fig = make_subplots(
+        rows=1,
+        cols=len(kappas),
+        subplot_titles=subplot_titles,
+        horizontal_spacing=0.08,
+    )
+
+    for j, kappa in enumerate(kappas, start=1):
+        pivot = _pivot_for_heatmap(rmse_df, "rmse_diff", kappa)
+        z = pivot.values
+        x_vals = list(pivot.columns)
+        y_vals = list(pivot.index)
+        text = np.round(z, 2)
+
+        show_scale = j == len(kappas)
+
+        fig.add_trace(
+            go.Heatmap(
+                z=z,
+                x=x_vals,
+                y=y_vals,
+                colorscale="RdBu",
+                zmid=0,
+                text=text,
+                texttemplate="%{text}",
+                textfont={"size": 10},
+                colorbar=dict(title="RMSE diff") if show_scale else None,
+                showscale=show_scale,
+                hovertemplate=(
+                    "alpha_d=%{x}<br>"
+                    "alpha_y=%{y}<br>"
+                    "RMSE diff=%{z:.4f}<extra></extra>"
+                ),
+            ),
+            row=1,
+            col=j,
+        )
+
+        fig.update_xaxes(
+            title_text="Treatment complexity (α_D)",
+            tickmode="array",
+            tickvals=x_vals,
+            ticktext=[str(v) for v in x_vals],
+            row=1,
+            col=j,
+        )
+        fig.update_yaxes(
+            title_text="Treatment complexity (α_D)" if j == 1 else None,
+            tickmode="array",
+            tickvals=y_vals,
+            ticktext=[str(v) for v in y_vals],
+            scaleanchor=f"x{j}" if j > 1 else "x",
+            scaleratio=1,
+            row=1,
+            col=j,
+        )
 
     fig.update_layout(
-    xaxis=dict(
-        tickmode='array',
-        tickvals=rmse.columns,
-        ticktext=[str(x) for x in rmse.columns]
-    ),
-    yaxis=dict(
-        tickmode='array',
-        tickvals=rmse.index,
-        ticktext=[str(y) for y in rmse.index]
-    )
+        title={"text": "RMSE Difference (OLS − DML) Across Overlap Regimes", "x": 0.5},
+        height=450,
+        width=350 * len(kappas),
     )
 
-    fig.show()
-
-    return None
-
-
-def bias_ols(df: pd.DataFrame) -> pd.DataFrame:
-
-    bias_ols = bias(df)
-
-    fig = px.density_heatmap(bias_ols,
-                         y= "alpha_y",
-                         x = "alpha_d", 
-                         z = "OLS")
-
-
-    fig.update_layout(
-    xaxis_title="alpha_d",
-    yaxis_title="alpha_y",
-    coloraxis_colorbar_title="Bias OLS"
-    )
-
-    fig.update_layout(
-    xaxis=dict(
-        tickmode='array',
-        tickvals=bias_ols.columns,
-        ticktext=[str(x) for x in bias_ols.columns]
-    ),
-    yaxis=dict(
-        tickmode='array',
-        tickvals=bias_ols.index,
-        ticktext=[str(y) for y in bias_ols.index]
-    )
-    )
-
-    fig.show()
-
-    return None
-
-def bias_dml(df: pd.DataFrame) -> pd.DataFrame:
-
-    bias_dml = bias(df)
-
-    fig = px.density_heatmap(bias_dml,
-                         y= "alpha_y",
-                         x = "alpha_d", 
-                         z = "DML")
-
-
-    fig.update_layout(
-    xaxis_title="alpha_d",
-    yaxis_title="alpha_y",
-    coloraxis_colorbar_title="Bias DML"
-    )
-
-    fig.update_layout(
-    xaxis=dict(
-        tickmode='array',
-        tickvals=bias_dml.columns,
-        ticktext=[str(x) for x in bias_dml.columns]
-    ),
-    yaxis=dict(
-        tickmode='array',
-        tickvals=bias_dml.index,
-        ticktext=[str(y) for y in bias_dml.index]
-    )
-    )
-
-    fig.show()
-
-    return None
-
-
-def sd_dml(df: pd.DataFrame) -> pd.DataFrame:
-
-    sd_dml = sd(df)
-
-    fig = px.density_heatmap(sd_dml,
-                         y= "alpha_y",
-                         x = "alpha_d", 
-                         z = "DML")
-
-
-    fig.update_layout(
-    xaxis_title="alpha_d",
-    yaxis_title="alpha_y",
-    coloraxis_colorbar_title="SD DML"
-    )
-
-    fig.update_layout(
-    xaxis=dict(
-        tickmode='array',
-        tickvals=sd_dml.columns,
-        ticktext=[str(x) for x in sd_dml.columns]
-    ),
-    yaxis=dict(
-        tickmode='array',
-        tickvals=sd_dml.index,
-        ticktext=[str(y) for y in sd_dml.index]
-    )
-    )
-
-    fig.show()
-
-    return None
-
-
-def sd_ols(df: pd.DataFrame) -> pd.DataFrame:
-
-    sd_ols = sd(df)
-
-    fig = px.density_heatmap(sd_ols,
-                         y= "alpha_y",
-                         x = "alpha_d", 
-                         z = "OLS")
-
-
-    fig.update_layout(
-    xaxis_title="alpha_d",
-    yaxis_title="alpha_y",
-    coloraxis_colorbar_title="SD OLS"
-    )
-
-    fig.update_layout(
-    xaxis=dict(
-        tickmode='array',
-        tickvals=sd_ols.columns,
-        ticktext=[str(x) for x in sd_ols.columns]
-    ),
-    yaxis=dict(
-        tickmode='array',
-        tickvals=sd_ols.index,
-        ticktext=[str(y) for y in sd_ols.index]
-    )
-    )
-
-    fig.show()
-
-    return None
-
-def coverage_dml(df: pd.DataFrame) -> pd.DataFrame:
-
-    dml = coverage(df)
-
-    fig = px.density_heatmap(dml,
-                         y= "alpha_y",
-                         x = "alpha_d", 
-                         z = "DML")
-
-
-    fig.update_layout(
-    xaxis_title="alpha_d",
-    yaxis_title="alpha_y",
-    coloraxis_colorbar_title="Coverage DML"
-    )
-
-    fig.update_layout(
-    xaxis=dict(
-        tickmode='array',
-        tickvals=dml.columns,
-        ticktext=[str(x) for x in dml.columns]
-    ),
-    yaxis=dict(
-        tickmode='array',
-        tickvals=dml.index,
-        ticktext=[str(y) for y in dml.index]
-    )
-    )
-
-    fig.show()
-
-    return None
-
-
-def coverage_ols(df: pd.DataFrame) -> pd.DataFrame:
-
-    ols = coverage(df)
-
-    fig = px.density_heatmap(sd_ols,
-                         y= "alpha_y",
-                         x = "alpha_d", 
-                         z = "OLS")
-
-
-    fig.update_layout(
-    xaxis_title="alpha_d",
-    yaxis_title="alpha_y",
-    coloraxis_colorbar_title="Coverage OLS"
-    )
-
-    fig.update_layout(
-    xaxis=dict(
-        tickmode='array',
-        tickvals=ols.columns,
-        ticktext=[str(x) for x in ols.columns]
-    ),
-    yaxis=dict(
-        tickmode='array',
-        tickvals=ols.index,
-        ticktext=[str(y) for y in ols.index]
-    )
-    )
-
-    fig.show()
-
-    return None
+    return fig

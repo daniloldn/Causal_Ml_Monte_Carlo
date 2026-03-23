@@ -25,6 +25,7 @@ def summarize_estimator(df: pd.DataFrame, tau_col: str, lower_col: str, upper_co
 def summarize_scenario(df: pd.DataFrame) -> pd.DataFrame:
     alpha_y = df["alpha_y"].iloc[0]
     alpha_d = df["alpha_d"].iloc[0]
+    kappa = df["kappa"].iloc[0]
 
     ols_summary = summarize_estimator(
         df,
@@ -47,6 +48,7 @@ def summarize_scenario(df: pd.DataFrame) -> pd.DataFrame:
 
     out["alpha_y"] = alpha_y
     out["alpha_d"] = alpha_d
+    out["kappa"] = kappa
 
     return out
 
@@ -56,7 +58,7 @@ def summarize_df(df: pd.DataFrame) -> pd.DataFrame:
     
     scenario_summaries = []
     
-    for (alpha_y, alpha_d), group in df.groupby(["alpha_y", "alpha_d"]):
+    for (alpha_y, alpha_d, kappa), group in df.groupby(["alpha_y", "alpha_d", "kappa"]):
         summary = summarize_scenario(group)
         scenario_summaries.append(summary)
         summary_df = pd.concat(scenario_summaries, ignore_index=True)
@@ -64,49 +66,49 @@ def summarize_df(df: pd.DataFrame) -> pd.DataFrame:
     return summary_df
 
 
-def rmse_diff(df: pd.DataFrame) -> pd.DataFrame:
+def metric_wide(df: pd.DataFrame, metric: str) -> pd.DataFrame:
+    """
+    Reshape one metric into wide form with OLS and DML as columns.
+    """
+    required = {"alpha_y", "alpha_d", "kappa", "estimator", metric}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing required columns: {sorted(missing)}")
 
-    rmse_wide = df.pivot_table(
-    index=["alpha_y", "alpha_d"],
-    columns="estimator",
-    values="rmse"
-    ).reset_index()
+    wide = (
+        df.pivot_table(
+            index=["alpha_y", "alpha_d", "kappa"],
+            columns="estimator",
+            values=metric,
+        )
+        .reset_index()
+    )
 
-    rmse_wide["rmse_diff"] = rmse_wide["OLS"] - rmse_wide["DML"]
-
-    return rmse_wide
-
-
-def bias(df: pd.DataFrame) -> pd.DataFrame:
-
-    bias_wide = df.pivot_table(
-    index=["alpha_y", "alpha_d"],
-    columns="estimator",
-    values="bias"
-    ).reset_index()
-
-    return bias_wide
-
-def sd(df: pd.DataFrame) -> pd.DataFrame:
+    wide.columns.name = None
+    return wide
 
 
-    sd = df.pivot_table(
-    index=["alpha_y", "alpha_d"],
-    columns="estimator",
-    values="sd"
-    ).reset_index()
-
-    return sd
-
-def coverage(df: pd.DataFrame) -> pd.DataFrame:
-
-
-    coverage = df.pivot_table(
-    index=["alpha_y", "alpha_d"],
-    columns="estimator",
-    values="coverage"
-    ).reset_index()
-
-    return coverage
+def rmse_diff_table(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create a wide RMSE table and add RMSE difference = OLS - DML.
+    Positive values mean DML performs better.
+    """
+    wide = metric_wide(df, "rmse")
+    wide["rmse_diff"] = wide["OLS"] - wide["DML"]
+    return wide
 
 
+def bias_table(df: pd.DataFrame) -> pd.DataFrame:
+    return metric_wide(df, "bias")
+
+
+def sd_table(df: pd.DataFrame) -> pd.DataFrame:
+    return metric_wide(df, "sd")
+
+
+def coverage_table(df: pd.DataFrame) -> pd.DataFrame:
+    return metric_wide(df, "coverage")
+
+
+def ci_length_table(df: pd.DataFrame) -> pd.DataFrame:
+    return metric_wide(df, "avg_ci_length")
