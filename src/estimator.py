@@ -35,13 +35,15 @@ def estimate_dml(
             n_estimators=200,
             max_depth=5,
             min_samples_leaf=5,
-            random_state=random_state
+            random_state=random_state, 
+            n_jobs=1
         ),
         model_t=RandomForestClassifier(
             n_estimators=200,
             max_depth=5,
             min_samples_leaf=5,
-            random_state=random_state
+            random_state=random_state, 
+            n_jobs=1
         ),
         discrete_treatment=True,
         cv=n_splits,

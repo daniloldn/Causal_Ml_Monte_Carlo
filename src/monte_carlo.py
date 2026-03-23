@@ -1,5 +1,6 @@
 from src.estimator import estimate_ols, estimate_dml
 from src.dgp import generate_dataset
+from src.utils import load_config
 
 import pandas as pd
 from tqdm import tqdm
@@ -33,21 +34,46 @@ def one_replication(config, alpha_y, alpha_d, kappa, seed):
 
 
 
-def run_scenario(config: dict, alpha_y: float, alpha_d: float, kappa:float) -> pd.DataFrame:
-    results = []
-
+def run_scenario(
+    config: dict,
+    alpha_y: float,
+    alpha_d: float,
+    kappa: float,
+    n_jobs: int | None = None
+) -> pd.DataFrame:
     base_seed = config["random_seed"]
     R = config["num_replications"]
+    n_jobs = n_jobs or os.cpu_count()
 
-    for r in tqdm(range(R), desc=f"alpha_y={alpha_y}, alpha_d={alpha_d}"):
-        seed = base_seed + r
-        row = one_replication(config, alpha_y=alpha_y, alpha_d=alpha_d, kappa=kappa, seed=seed)
-        row["replication"] = r
-        results.append(row)
+    futures = []
+    results = []
 
-    return pd.DataFrame(results)
+    with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+        for r in range(R):
+            seed = base_seed + r
+            futures.append(
+                executor.submit(
+                    one_replication,
+                    config,
+                    alpha_y,
+                    alpha_d,
+                    kappa,
+                    seed,
+                    r
+                )
+            )
 
-def run_simulation_grid(config: dict, save_each: bool = True) -> pd.DataFrame:
+        for fut in tqdm(
+            as_completed(futures),
+            total=R,
+            desc=f"alpha_y={alpha_y}, alpha_d={alpha_d}, kappa={kappa}"
+        ):
+            results.append(fut.result())
+
+    return pd.DataFrame(results).sort_values("replication").reset_index(drop=True)
+
+
+def run_simulation_grid(config: dict, save_each: bool = True, n_jobs: int | None = None) -> pd.DataFrame:
     all_results = []
 
     output_dir = Path(config["output_dir"])
@@ -56,12 +82,23 @@ def run_simulation_grid(config: dict, save_each: bool = True) -> pd.DataFrame:
     for alpha_y in config["alpha_y_grid"]:
         for alpha_d in config["alpha_d_grid"]:
             for kappa in config["kappa"]:
-                scenario_df = run_scenario(config, alpha_y=alpha_y, alpha_d=alpha_d, kappa=kappa)
+                scenario_df = run_scenario(
+                    config=config,
+                    alpha_y=alpha_y,
+                    alpha_d=alpha_d,
+                    kappa=kappa,
+                    n_jobs=n_jobs
+                )
                 all_results.append(scenario_df)
 
                 if save_each:
-                    filename = output_dir / f"alpha_y_{alpha_y}_alpha_d_{alpha_d}_kappa{kappa}.csv"
-                    scenario_df.to_csv(filename, index=False)
+                    filename = output_dir / f"alpha_y_{alpha_y}_alpha_d_{alpha_d}_kappa_{kappa}.csv"
+                    scenario_df.to_parquet(filename.with_suffix(".parquet"), index=False)
 
-    full_df = pd.concat(all_results, ignore_index=True)
-    return full_df
+    return pd.concat(all_results, ignore_index=True)
+
+
+
+if __name__ == "__main__":
+    config = load_config("baseline")
+    df = run_simulation_grid(config, save_each=True, n_jobs=8)
