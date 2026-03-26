@@ -809,3 +809,227 @@ def plot_residual_variance_vs_kappa(
         )
 
     return fig
+
+
+def plot_resid_var_vs_alpha_d(
+    df: pd.DataFrame,
+    resid_var_col: str = "estimated_resid_var",
+    alpha_d_col: str = "alpha_d",
+    kappa_col: str = "kappa",
+    alpha_y_col: str = "alpha_y",
+    agg: str = "mean",
+    average_over_alpha_y: bool = True,
+    title: str = "Residualized Treatment Variance vs Treatment Complexity",
+):
+    """
+    Plot residualized treatment variance against alpha_d.
+
+    Recommended:
+    - x-axis: alpha_d
+    - y-axis: Var(D - e_hat(X))
+    - lines by kappa
+    - average over alpha_y (since outcome complexity shouldn't matter here)
+    """
+
+    required = {resid_var_col, alpha_d_col, kappa_col, alpha_y_col}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+    # Collapse data
+    if average_over_alpha_y:
+        plot_df = (
+            df.groupby([alpha_d_col, kappa_col], as_index=False)
+            .agg({resid_var_col: agg})
+        )
+    else:
+        plot_df = (
+            df.groupby([alpha_d_col, kappa_col, alpha_y_col], as_index=False)
+            .agg({resid_var_col: agg})
+        )
+
+    fig = px.line(
+        plot_df,
+        x=alpha_d_col,
+        y=resid_var_col,
+        color=kappa_col,
+        markers=True,
+        title=title,
+        labels={
+            alpha_d_col: "Treatment complexity (alpha_d)",
+            resid_var_col: "Residualized treatment variance",
+            kappa_col: "Overlap regime (kappa)",
+        },
+    )
+
+    fig.update_traces(line=dict(width=2))
+    fig.update_layout(
+        template="plotly_white",
+        legend_title_text="kappa",
+    )
+
+    return fig
+
+def _check_required_columns(df: pd.DataFrame, required: set[str]) -> None:
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+
+def plot_m_error_vs_alpha_y(
+    df: pd.DataFrame,
+    m_mse_col: str = "m_mse",
+    alpha_y_col: str = "alpha_y",
+    kappa_col: str = "kappa",
+    alpha_d_col: str = "alpha_d",
+    average_over_alpha_d: bool = True,
+    agg: str = "mean",
+    title: str = "Outcome Nuisance Error vs Outcome Nonlinearity",
+):
+    """
+    Plot outcome nuisance error against alpha_y.
+    Lines are split by kappa.
+    """
+    required = {m_mse_col, alpha_y_col, kappa_col, alpha_d_col}
+    _check_required_columns(df, required)
+
+    group_cols = [alpha_y_col, kappa_col]
+    if not average_over_alpha_d:
+        group_cols.append(alpha_d_col)
+
+    plot_df = (
+        df.groupby(group_cols, as_index=False)
+        .agg({m_mse_col: agg})
+        .sort_values(group_cols)
+    )
+
+    fig = px.line(
+        plot_df,
+        x=alpha_y_col,
+        y=m_mse_col,
+        color=kappa_col,
+        markers=True,
+        title=title,
+        labels={
+            alpha_y_col: "Outcome nonlinearity (alpha_y)",
+            m_mse_col: "Outcome nuisance MSE",
+            kappa_col: "Overlap regime (kappa)",
+        },
+    )
+
+    fig.update_traces(line=dict(width=2))
+    fig.update_layout(
+        template="plotly_white",
+        legend_title_text="kappa",
+    )
+    return fig
+
+
+def plot_e_error_vs_alpha_d(
+    df: pd.DataFrame,
+    e_mse_col: str = "e_mse",
+    alpha_d_col: str = "alpha_d",
+    kappa_col: str = "kappa",
+    alpha_y_col: str = "alpha_y",
+    average_over_alpha_y: bool = True,
+    agg: str = "mean",
+    title: str = "Propensity Nuisance Error vs Treatment Complexity",
+):
+    """
+    Plot propensity nuisance error against alpha_d.
+    Lines are split by kappa.
+    """
+    required = {e_mse_col, alpha_d_col, kappa_col, alpha_y_col}
+    _check_required_columns(df, required)
+
+    group_cols = [alpha_d_col, kappa_col]
+    if not average_over_alpha_y:
+        group_cols.append(alpha_y_col)
+
+    plot_df = (
+        df.groupby(group_cols, as_index=False)
+        .agg({e_mse_col: agg})
+        .sort_values(group_cols)
+    )
+
+    fig = px.line(
+        plot_df,
+        x=alpha_d_col,
+        y=e_mse_col,
+        color=kappa_col,
+        markers=True,
+        title=title,
+        labels={
+            alpha_d_col: "Treatment complexity (alpha_d)",
+            e_mse_col: "Propensity nuisance MSE",
+            kappa_col: "Overlap regime (kappa)",
+        },
+    )
+
+    fig.update_traces(line=dict(width=2))
+    fig.update_layout(
+        template="plotly_white",
+        legend_title_text="kappa",
+    )
+    return fig
+
+
+
+def plot_resid_var_vs_alpha_d(
+    df: pd.DataFrame,
+    resid_var_col: str = "estimated_resid_var",
+    alpha_d_col: str = "alpha_d",
+    kappa_col: str = "kappa",
+    alpha_y_col: str = "alpha_y",
+    agg: str = "mean",
+    average_over_alpha_y: bool = True,
+    title: str = "Residualized Treatment Variance vs Treatment Complexity",
+):
+    """
+    Plot residualized treatment variance against alpha_d.
+
+    Recommended:
+    - x-axis: alpha_d
+    - y-axis: Var(D - e_hat(X))
+    - lines by kappa
+    - average over alpha_y (since outcome complexity shouldn't matter here)
+    """
+
+    required = {resid_var_col, alpha_d_col, kappa_col, alpha_y_col}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+    # Collapse data
+    if average_over_alpha_y:
+        plot_df = (
+            df.groupby([alpha_d_col, kappa_col], as_index=False)
+            .agg({resid_var_col: agg})
+        )
+    else:
+        plot_df = (
+            df.groupby([alpha_d_col, kappa_col, alpha_y_col], as_index=False)
+            .agg({resid_var_col: agg})
+        )
+
+    fig = px.line(
+        plot_df,
+        x=alpha_d_col,
+        y=resid_var_col,
+        color=kappa_col,
+        markers=True,
+        title=title,
+        labels={
+            alpha_d_col: "Treatment complexity (alpha_d)",
+            resid_var_col: "Residualized treatment variance",
+            kappa_col: "Overlap regime (kappa)",
+        },
+    )
+
+    fig.update_traces(line=dict(width=2))
+    fig.update_layout(
+        template="plotly_white",
+        legend_title_text="kappa",
+    )
+
+    return fig
