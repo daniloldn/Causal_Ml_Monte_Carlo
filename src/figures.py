@@ -1033,3 +1033,45 @@ def plot_resid_var_vs_alpha_d(
     )
 
     return fig
+
+def plot_interaction(df):
+    import numpy as np
+    import plotly.express as px
+
+    df_plot = df.copy()
+    df_plot["tau_sq_error"] = (df_plot["dml_tau_hat"] - df_plot["tau_true"]) ** 2
+
+    plot_df = (
+        df_plot.groupby(["kappa", "alpha_y", "alpha_d"], as_index=False)
+        .agg(
+            tau_rmse=("tau_sq_error", lambda x: np.sqrt(np.mean(x))),
+            m_mse=("m_mse", "mean"),
+            resid_var_d=("estimated_resid_var", "mean"),
+        )
+    )
+
+    plot_df["interaction"] = plot_df["m_mse"] / plot_df["resid_var_d"]
+
+    fig = px.scatter(
+        plot_df,
+        x="interaction",
+        y="tau_rmse",
+        color="kappa",
+        trendline="ols",
+        labels={
+            "interaction": "Outcome error / residual variation",
+            "tau_rmse": "DML RMSE",
+            "kappa": "Overlap (κ)"
+        },
+        title="DML RMSE as a Function of Outcome Error and Residual Variation", 
+        trendline_color_override="black"
+    )
+
+    fig.update_traces(marker=dict(size=10, opacity=0.85))
+
+    fig.update_layout(
+        template="plotly_white",
+        title_x=0.5,
+    )
+
+    return fig
