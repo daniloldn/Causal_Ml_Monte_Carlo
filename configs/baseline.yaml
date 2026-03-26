@@ -1,4 +1,4 @@
-sample_size: 500
+sample_size: 200
 num_covariates: 20
 treatment_effect: 2.5
 X_std : 1
