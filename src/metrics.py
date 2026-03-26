@@ -12,13 +12,17 @@ def summarize_estimator(df: pd.DataFrame, tau_col: str, lower_col: str, upper_co
     rmse = np.sqrt(((tau_hat - tau_true) ** 2).mean())
     coverage = ((df[lower_col] <= tau_true) & (df[upper_col] >= tau_true)).mean()
     avg_ci_length = (df[upper_col] - df[lower_col]).mean()
+    avg_overlap = (df["overlap"]).mean()
+    avg_resid_var = (df["residual_d_var"]).mean()
 
     return pd.Series({
         "bias": bias,
         "sd": sd,
         "rmse": rmse,
         "coverage": coverage,
-        "avg_ci_length": avg_ci_length
+        "avg_ci_length": avg_ci_length, 
+        "avg_overlap": avg_overlap, 
+        "avg_residual_var": avg_resid_var
     })
 
 
@@ -112,3 +116,9 @@ def coverage_table(df: pd.DataFrame) -> pd.DataFrame:
 
 def ci_length_table(df: pd.DataFrame) -> pd.DataFrame:
     return metric_wide(df, "avg_ci_length")
+
+def overlap_table(df: pd.DataFrame) -> pd.DataFrame:
+    return metric_wide(df, "avg_overlap")
+
+def res_var_table(df: pd.DataFrame) -> pd.DataFrame:
+    return metric_wide(df, "avg_residual_var")

@@ -8,6 +8,8 @@ from src.metrics import (
     bias_table,
     sd_table,
     coverage_table,
+    res_var_table, 
+    overlap_table
 )
 
 
@@ -260,6 +262,8 @@ def metric_panels(
         "bias": bias_table,
         "sd": sd_table,
         "coverage": coverage_table,
+        "overlap": overlap_table,
+        "residual": res_var_table
     }
 
     if metric not in metric_builders:
@@ -281,6 +285,8 @@ def metric_panels(
         "bias": f"Bias ({estimator}) Across Overlap Regimes",
         "sd": f"Standard Deviation ({estimator}) Across Overlap Regimes",
         "coverage": f"Coverage ({estimator}) Across Overlap Regimes",
+        "overlap": f"Overlap Across Overlap Regimes",
+        "residual": f"Residualized D Variance({estimator}) Across Overlap Regimes"
     }
 
     colorbar_map = {
@@ -288,6 +294,8 @@ def metric_panels(
         "bias": f"{estimator} bias",
         "sd": f"{estimator} sd",
         "coverage": f"{estimator} coverage",
+        "overlap": f"{estimator} coverage",
+        "residual": f"{estimator} coverage",
     }
 
     colorscale_map = {
@@ -295,6 +303,8 @@ def metric_panels(
         "bias": "RdBu",
         "sd": "Blues",
         "coverage": "Viridis",
+        "overlap": "Viridis",
+        "residual": "Viridis"
     }
 
     zmid_map = {
@@ -302,6 +312,8 @@ def metric_panels(
         "bias": 0,
         "sd": None,
         "coverage": None,
+        "overlap": None, 
+        "residual": None
     }
 
     subplot_titles = [f"kappa={k}" for k in kappas]
