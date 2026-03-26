@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 from plotly.subplots import make_subplots
 
 from src.metrics import (
@@ -585,5 +586,226 @@ def combined_theory_empirical_frontier(
         height=950,
         margin=dict(t=90, l=60, r=120, b=60)
     )
+
+    return fig
+
+
+def plot_dml_rmse_vs_residual_variance(
+    df: pd.DataFrame,
+    tau_hat_col: str = "dml_tau_hat",
+    tau_true_col: str = "tau_true",
+    resid_var_col: str = "resid_var_d",
+    alpha_y_col: str = "alpha_y",
+    alpha_d_col: str = "alpha_d",
+    kappa_col: str = "kappa",
+    average_over_alpha_d: bool = True,
+    title: str = "DML RMSE vs Residualized Treatment Variance",
+):
+    """
+    Plot DML RMSE against residualized treatment variance.
+
+    RMSE is computed within each group as:
+        sqrt(mean((tau_hat - tau_true)^2))
+
+    Recommended interpretation:
+    - x-axis: Var(D - e_hat(X))
+    - y-axis: DML RMSE
+    - separate lines by alpha_y
+    - optionally average over alpha_d to keep the figure clean
+    """
+
+    required = {
+        tau_hat_col,
+        tau_true_col,
+        resid_var_col,
+        alpha_y_col,
+        alpha_d_col,
+        kappa_col,
+    }
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+    df_plot = df.copy()
+    df_plot["dml_sq_error"] = (df_plot[tau_hat_col] - df_plot[tau_true_col]) ** 2
+
+    group_cols = [alpha_y_col, kappa_col]
+    if not average_over_alpha_d:
+        group_cols.append(alpha_d_col)
+
+    plot_df = (
+        df_plot.groupby(group_cols, as_index=False)
+        .agg(
+            dml_rmse=("dml_sq_error", lambda x: np.sqrt(np.mean(x))),
+            resid_var_d=(resid_var_col, "mean"),
+        )
+        .sort_values(
+            [alpha_y_col, kappa_col] +
+            ([alpha_d_col] if not average_over_alpha_d else [])
+        )
+    )
+
+    if average_over_alpha_d:
+        plot_df["line_group"] = plot_df[alpha_y_col].astype(str)
+        color_col = alpha_y_col
+        symbol_col = None
+    else:
+        plot_df["line_group"] = (
+            plot_df[alpha_y_col].astype(str) + "_" +
+            plot_df[alpha_d_col].astype(str)
+        )
+        color_col = alpha_y_col
+        symbol_col = alpha_d_col
+
+    fig = px.line(
+        plot_df,
+        x="resid_var_d",
+        y="dml_rmse",
+        color=color_col,
+        symbol=symbol_col,
+        markers=True,
+        line_group="line_group",
+        hover_data=[kappa_col] + ([alpha_d_col] if not average_over_alpha_d else []),
+        title=title,
+        labels={
+            "resid_var_d": "Residualised Treatment Variance",
+            "dml_rmse": "DML RMSE",
+            alpha_y_col: "Outcome nonlinearity (alpha_y)",
+            alpha_d_col: "Treatment complexity (alpha_d)",
+            kappa_col: "Overlap regime (kappa)",
+        },
+    )
+
+    fig.update_traces(line=dict(width=2))
+    fig.update_layout(
+        template="plotly_white",
+        legend_title_text="alpha_y",
+    )
+    #fig.update_xaxes(autorange="reversed")
+
+    return fig
+
+
+def _collapse_metric(
+    df: pd.DataFrame,
+    group_cols: list[str],
+    value_col: str,
+    agg: str = "mean",
+) -> pd.DataFrame:
+    """
+    Collapse a dataframe to the requested grouping level.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input dataframe.
+    group_cols : list[str]
+        Columns to group by.
+    value_col : str
+        Metric column to aggregate.
+    agg : str
+        Aggregation method, e.g. 'mean', 'median'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Grouped dataframe with one row per group.
+    """
+    if agg not in {"mean", "median"}:
+        raise ValueError("agg must be 'mean' or 'median'")
+
+    grouped = (
+        df[group_cols + [value_col]]
+        .groupby(group_cols, as_index=False)
+        .agg(**{value_col: (value_col, agg)})
+    )
+    return grouped
+
+
+def plot_residual_variance_vs_kappa(
+    df: pd.DataFrame,
+    resid_var_col: str = "resid_var_d",
+    kappa_col: str = "kappa",
+    alpha_d_col: str = "alpha_d",
+    alpha_y_col: str = "alpha_y",
+    agg: str = "mean",
+    average_over_alpha_y: bool = True,
+    title: str = "Residualized Treatment Variance vs Overlap Regime",
+):
+    """
+    Plot Var(D - e_hat(X)) against kappa.
+
+    Recommended interpretation:
+    - x-axis: kappa
+    - y-axis: Var(D - e_hat(X))
+    - separate lines by alpha_d
+    - optionally average over alpha_y
+    """
+    required = {resid_var_col, kappa_col, alpha_d_col, alpha_y_col}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+    if average_over_alpha_y:
+        plot_df = _collapse_metric(
+            df=df,
+            group_cols=[kappa_col, alpha_d_col],
+            value_col=resid_var_col,
+            agg=agg,
+        )
+    else:
+        plot_df = _collapse_metric(
+            df=df,
+            group_cols=[kappa_col, alpha_d_col, alpha_y_col],
+            value_col=resid_var_col,
+            agg=agg,
+        )
+
+    fig = px.line(
+        plot_df,
+        x=kappa_col,
+        y=resid_var_col,
+        color=alpha_d_col,
+        markers=True,
+        line_group=alpha_d_col,
+        title=title,
+        labels={
+            kappa_col: "Overlap regime (kappa)",
+            resid_var_col: "Var(D - ê(X))",
+            alpha_d_col: "Treatment complexity (alpha_d)",
+            alpha_y_col: "Outcome nonlinearity (alpha_y)",
+        },
+    )
+
+    fig.update_traces(line=dict(width=2))
+    fig.update_layout(
+        template="plotly_white",
+        legend_title_text="alpha_d",
+        xaxis=dict(tickmode="linear"),
+    )
+
+    if not average_over_alpha_y:
+        fig = px.line(
+            plot_df,
+            x=kappa_col,
+            y=resid_var_col,
+            color=alpha_d_col,
+            facet_col=alpha_y_col,
+            facet_col_wrap=3,
+            markers=True,
+            title=title,
+            labels={
+                kappa_col: "Overlap regime (kappa)",
+                resid_var_col: "Var(D - ê(X))",
+                alpha_d_col: "Treatment complexity (alpha_d)",
+                alpha_y_col: "Outcome nonlinearity (alpha_y)",
+            },
+        )
+        fig.update_traces(line=dict(width=2))
+        fig.update_layout(
+            template="plotly_white",
+            legend_title_text="alpha_d",
+            xaxis=dict(tickmode="linear"),
+        )
 
     return fig
