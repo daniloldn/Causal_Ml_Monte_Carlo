@@ -1,4 +1,4 @@
-from src.estimator import estimate_ols, estimate_dml
+from src.estimator import estimate_ols, estimate_dml, estimate_dml_manual
 from src.dgp import generate_dataset
 from src.utils import load_config
 
@@ -16,15 +16,16 @@ def one_replication(config, alpha_y, alpha_d, kappa, seed, replication):
     data = generate_dataset(config, alpha_y=alpha_y, alpha_d=alpha_d, kappa=kappa, seed=seed)
 
     ols_res = estimate_ols(data["X"], data["D"], data["Y"])
-    
-    dml_res = estimate_dml(data["X"], data["D"], data["Y"])
+
+    #dml_res = estimate_dml(data["X"], data["D"], data["Y"])
+    dml_res = estimate_dml_manual(data["X"], data["D"], data["Y"], data["tau_true"], data["f_alpha"], data["e"])
+
 
     return {
         "alpha_y": alpha_y,
         "alpha_d": alpha_d,
-        "kappa": kappa, 
+        "kappa": kappa,
         "seed": seed,
-        "mx" : data["f_x"],
         "overlap": np.mean(data["e"] * (1 - data["e"])),
         "residual_d_var": np.var(data["D"] - data["e"]),
         "replication": replication,
@@ -37,6 +38,10 @@ def one_replication(config, alpha_y, alpha_d, kappa, seed, replication):
         "dml_se": dml_res["se"],
         "dml_ci_lower": dml_res["ci_lower"],
         "dml_ci_upper": dml_res["ci_upper"],
+        "m_mse": dml_res["m_rmse"],
+        "e_mse": dml_res["e_rmse"],
+        "estimated_resid_var": dml_res["resid_d_var"], 
+        "treatmeant_var": dml_res["resid_d_sq_mean"]
     }
 
 
