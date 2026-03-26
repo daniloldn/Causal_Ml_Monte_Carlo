@@ -99,7 +99,7 @@ def frontier_heatmap(summary_df: pd.DataFrame, kappa: float) -> go.Figure:
         colorbar_title="RMSE diff",
         colorscale="RdBu",
         zmid=0,
-        text_round=3,
+        text_round=2,
     )
     return fig
 
@@ -153,7 +153,7 @@ def estimator_metric_heatmap(
         colorbar_title=colorbar_map[metric],
         colorscale=colorscale_map[metric],
         zmid=zmid,
-        text_round=3,
+        text_round=2,
     )
     return fig
 
@@ -388,3 +388,190 @@ def estimator_metric_panels(
         estimator=estimator,
         kappas=kappas,
     )
+
+def combined_theory_empirical_frontier(
+    rmse_df: pd.DataFrame,
+    kappa_values=(0.5, 1.0, 2.0),
+    alpha_y_grid=np.linspace(0, 1, 101),
+    alpha_d_grid=np.linspace(0, 1, 101),
+    a=1.2,   # benefit from outcome nonlinearity
+    b=0.25,  # smaller benefit from treatment learnability
+    c=0.55,  # overlap penalty
+    d=0.45   # offset
+):
+    """
+    Create a 2xK panel figure:
+      - top row: theoretical contour plots
+      - bottom row: empirical contour plots based on rmse_diff
+
+    Theoretical score:
+        S(alpha_y, alpha_d; kappa) = a*alpha_y + b*alpha_d - c*kappa^2 - d
+
+    Interpretation:
+        S > 0  => DML better
+        S < 0  => OLS better
+    """
+
+    kappa_values = list(kappa_values)
+    ncols = len(kappa_values)
+
+    fig = make_subplots(
+        rows=2,
+        cols=ncols,
+        shared_xaxes=False,
+        shared_yaxes=False,
+        vertical_spacing=0.12,
+        horizontal_spacing=0.06,
+        subplot_titles=(
+            [f"Theory: kappa = {k}" for k in kappa_values] +
+            [f"Empirical: kappa = {k}" for k in kappa_values]
+        )
+    )
+
+    # ---------- Top row: theoretical ----------
+    AY, AD = np.meshgrid(alpha_y_grid, alpha_d_grid, indexing="ij")
+
+    theory_scores = {}
+    theory_absmax = 0.0
+
+    for kappa in kappa_values:
+        S = a * AY + b * AD - c * (kappa ** 2) - d
+        theory_scores[kappa] = S
+        theory_absmax = max(theory_absmax, np.max(np.abs(S)))
+
+    for col, kappa in enumerate(kappa_values, start=1):
+        S = theory_scores[kappa]
+
+        fig.add_trace(
+            go.Contour(
+                x=alpha_d_grid,
+                y=alpha_y_grid,
+                z=S,
+                colorscale="RdBu",
+                zmid=0,
+                zmin=-theory_absmax,
+                zmax=theory_absmax,
+                showscale=(col == ncols),
+                colorbar=dict(
+                    title="Theory score",
+                    x=1.02,
+                    y=0.80,
+                    len=0.35
+                ) if col == ncols else None,
+                contours=dict(
+                    start=-theory_absmax,
+                    end=theory_absmax,
+                    size=theory_absmax / 12 if theory_absmax > 0 else 0.1
+                ),
+                line=dict(width=0.6),
+                hovertemplate=(
+                    "alpha_d=%{x:.2f}<br>"
+                    "alpha_y=%{y:.2f}<br>"
+                    f"kappa={kappa:.1f}<br>"
+                    "score=%{z:.3f}<extra></extra>"
+                )
+            ),
+            row=1, col=col
+        )
+
+        # Zero contour
+        fig.add_trace(
+            go.Contour(
+                x=alpha_d_grid,
+                y=alpha_y_grid,
+                z=S,
+                contours=dict(
+                    start=0,
+                    end=0,
+                    coloring="lines"
+                ),
+                line=dict(width=4, color="gold"),
+                showscale=False,
+                hoverinfo="skip"
+            ),
+            row=1, col=col
+        )
+
+    # ---------- Bottom row: empirical ----------
+    emp_absmax = max(abs(rmse_df["rmse_diff"].min()), abs(rmse_df["rmse_diff"].max()))
+
+    for col, kappa in enumerate(kappa_values, start=1):
+        sub = rmse_df[rmse_df["kappa"] == kappa].copy()
+
+        pivot = (
+            sub.pivot(index="alpha_y", columns="alpha_d", values="rmse_diff")
+            .sort_index()
+            .sort_index(axis=1)
+        )
+
+        x = pivot.columns.to_numpy()
+        y = pivot.index.to_numpy()
+        z = pivot.to_numpy()
+
+        fig.add_trace(
+            go.Contour(
+                x=x,
+                y=y,
+                z=z,
+                colorscale="RdBu",
+                zmid=0,
+                zmin=-emp_absmax,
+                zmax=emp_absmax,
+                showscale=(col == ncols),
+                colorbar=dict(
+                    title="RMSE diff",
+                    x=1.02,
+                    y=0.20,
+                    len=0.35
+                ) if col == ncols else None,
+                contours=dict(
+                    start=-emp_absmax,
+                    end=emp_absmax,
+                    size=emp_absmax / 12 if emp_absmax > 0 else 0.01
+                ),
+                line=dict(width=0.6),
+                hovertemplate=(
+                    "alpha_d=%{x:.2f}<br>"
+                    "alpha_y=%{y:.2f}<br>"
+                    f"kappa={kappa:.1f}<br>"
+                    "rmse_diff=%{z:.4f}<extra></extra>"
+                )
+            ),
+            row=2, col=col
+        )
+
+        # Zero contour
+        if np.nanmin(z) <= 0 <= np.nanmax(z):
+            fig.add_trace(
+                go.Contour(
+                    x=x,
+                    y=y,
+                    z=z,
+                    contours=dict(
+                        start=0,
+                        end=0,
+                        coloring="lines"
+                    ),
+                    line=dict(width=4, color="gold"),
+                    showscale=False,
+                    hoverinfo="skip"
+                ),
+                row=2, col=col
+            )
+
+    # ---------- Axes ----------
+    for col in range(1, ncols + 1):
+        fig.update_xaxes(title_text="Treatment complexity (alpha_d)", row=1, col=col)
+        fig.update_xaxes(title_text="Treatment complexity (alpha_d)", row=2, col=col)
+        fig.update_yaxes(title_text="Outcome nonlinearity (alpha_y)", row=1, col=col)
+        fig.update_yaxes(title_text="Outcome nonlinearity (alpha_y)", row=2, col=col)
+
+    fig.update_layout(
+        title="Theoretical and empirical frontiers for DML vs OLS",
+        template="plotly_white",
+        width=1600,
+        height=950,
+        margin=dict(t=90, l=60, r=120, b=60)
+    )
+
+    return fig
