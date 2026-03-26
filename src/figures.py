@@ -191,7 +191,7 @@ def frontier_panels(summary_df: pd.DataFrame, kappas: list[float]) -> go.Figure:
                 y=y_vals,
                 colorscale="RdBu",
                 zmid=0,
-                text=text,
+                #text=text,
                 texttemplate="%{text}",
                 textfont={"size": 10},
                 colorbar=dict(title="RMSE diff") if show_scale else None,

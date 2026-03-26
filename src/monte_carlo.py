@@ -24,6 +24,7 @@ def one_replication(config, alpha_y, alpha_d, kappa, seed, replication):
         "alpha_d": alpha_d,
         "kappa": kappa, 
         "seed": seed,
+        "mx" : data["f_x"],
         "overlap": np.mean(data["e"] * (1 - data["e"])),
         "residual_d_var": np.var(data["D"] - data["e"]),
         "replication": replication,
