@@ -1070,17 +1070,19 @@ def plot_interaction(df):
     )
 
     plot_df["interaction"] = plot_df["m_mse"] / plot_df["resid_var_d"]
+    plot_df["kappa_str"] = plot_df["kappa"].astype(str)
+
 
     fig = px.scatter(
         plot_df,
         x="interaction",
         y="tau_rmse",
-        color="kappa",
+        color="kappa_str",
         trendline="ols",
         labels={
             "interaction": "Outcome error / residual variation",
             "tau_rmse": "DML RMSE",
-            "kappa": "Overlap (κ)"
+            "kappa_str": "Overlap (κ)"
         },
         title="DML RMSE as a Function of Outcome Error and Residual Variation", 
         trendline_color_override="black"
