@@ -38,7 +38,16 @@ For each simulation scenario, the code:
 
 ## Environment Setup
 
-`requirements.txt` and `environment.yml` are currently empty, so install dependencies manually.
+Use either Conda (`environment.yml`) or pip (`requirements.txt`).
+
+### Option A: Conda (recommended)
+
+```bash
+conda env create -f environment.yml
+conda activate causal-ml-monte-carlo
+```
+
+### Option B: venv + pip
 
 ```bash
 python -m venv .venv
@@ -46,7 +55,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 
 python -m pip install --upgrade pip
-pip install numpy pandas scipy scikit-learn statsmodels econml plotly pyarrow pyyaml tqdm jupyter
+pip install -r requirements.txt
 ```
 
 ## How To Run
