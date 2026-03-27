@@ -10,7 +10,9 @@ from src.metrics import (
     sd_table,
     coverage_table,
     res_var_table, 
-    overlap_table
+    overlap_table, 
+    sd_diff_table, 
+    bias_diff_table
 )
 
 
@@ -249,72 +251,90 @@ def metric_panels(
     summary_df : pd.DataFrame
         Scenario-level summary dataframe.
     metric : str
-        One of {"rmse_diff", "bias", "sd", "coverage"}.
+        One of {
+            "rmse_diff", "sd_diff", "bias_diff",
+            "bias", "sd", "coverage", "overlap", "residual"
+        }.
     kappas : list[float]
         Values of kappa to panel across.
     estimator : str | None
-        Required for {"bias", "sd", "coverage"} and must be one of {"OLS", "DML"}.
-        Must be None for "rmse_diff".
+        Required for {"bias", "sd", "coverage", "residual"} and must be one of {"OLS", "DML"}.
+        Must be None for {"rmse_diff", "sd_diff", "bias_diff", "overlap"}.
     text_round : int
         Number of decimals shown in cells.
     """
     metric_builders = {
         "rmse_diff": rmse_diff_table,
+        "sd_diff": sd_diff_table,
+        "bias_diff": bias_diff_table,
         "bias": bias_table,
         "sd": sd_table,
         "coverage": coverage_table,
         "overlap": overlap_table,
-        "residual": res_var_table
+        "residual": res_var_table,
     }
 
     if metric not in metric_builders:
-        raise ValueError("metric must be one of {'rmse_diff', 'bias', 'sd', 'coverage'}")
+        raise ValueError(
+            "metric must be one of "
+            "{'rmse_diff', 'sd_diff', 'bias_diff', 'bias', 'sd', 'coverage', 'overlap', 'residual'}"
+        )
 
-    if metric == "rmse_diff":
+    if metric in {"rmse_diff", "sd_diff", "bias_diff", "overlap"}:
         if estimator is not None:
-            raise ValueError("estimator must be None when metric='rmse_diff'")
+            raise ValueError(f"estimator must be None when metric='{metric}'")
         metric_df = metric_builders[metric](summary_df)
-        value_col = "rmse_diff"
+        value_col = metric
     else:
         if estimator not in {"OLS", "DML"}:
-            raise ValueError("For bias/sd/coverage, estimator must be 'OLS' or 'DML'")
+            raise ValueError(
+                "For bias/sd/coverage/residual, estimator must be 'OLS' or 'DML'"
+            )
         metric_df = metric_builders[metric](summary_df)
         value_col = estimator
 
     title_map = {
         "rmse_diff": "RMSE Difference (OLS − DML) Across Overlap Regimes",
+        "sd_diff": "SD Difference (OLS − DML) Across Overlap Regimes",
+        "bias_diff": "Bias Difference (OLS − DML) Across Overlap Regimes",
         "bias": f"Bias ({estimator}) Across Overlap Regimes",
         "sd": f"Standard Deviation ({estimator}) Across Overlap Regimes",
         "coverage": f"Coverage ({estimator}) Across Overlap Regimes",
-        "overlap": f"Overlap Across Overlap Regimes",
-        "residual": f"Residualized D Variance({estimator}) Across Overlap Regimes"
+        "overlap": "Overlap Across Overlap Regimes",
+        "residual": f"Residualized D Variance ({estimator}) Across Overlap Regimes",
     }
 
     colorbar_map = {
         "rmse_diff": "RMSE diff",
+        "sd_diff": "SD diff",
+        "bias_diff": "Bias diff",
         "bias": f"{estimator} bias",
         "sd": f"{estimator} sd",
         "coverage": f"{estimator} coverage",
-        "overlap": f"{estimator} coverage",
-        "residual": f"{estimator} coverage",
+        "overlap": "overlap",
+        "residual": f"{estimator} residual var",
     }
 
     colorscale_map = {
         "rmse_diff": "RdBu",
+        "sd_diff": "RdBu",
+        "bias_diff": "RdBu",
         "bias": "RdBu",
         "sd": "Blues",
         "coverage": "Viridis",
         "overlap": "Viridis",
-        "residual": "Viridis"
+        "residual": "Viridis",
     }
 
     zmid_map = {
         "rmse_diff": 0,
+        "sd_diff": 0,
+        "bias_diff": 0,
         "bias": 0,
         "sd": None,
         "coverage": None,
-        "overlap": None, 
-        "residual": None
+        "overlap": None,
+        "residual": None,
     }
 
     subplot_titles = [f"kappa={k}" for k in kappas]
@@ -335,7 +355,6 @@ def metric_panels(
         text = np.round(z, text_round)
 
         show_scale = j == len(kappas)
-
         hover_name = colorbar_map[metric]
 
         fig.add_trace(

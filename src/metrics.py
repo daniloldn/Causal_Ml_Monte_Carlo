@@ -101,6 +101,21 @@ def rmse_diff_table(df: pd.DataFrame) -> pd.DataFrame:
     wide["rmse_diff"] = wide["OLS"] - wide["DML"]
     return wide
 
+def sd_diff_table(summary_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build a scenario-level table of SD differences: OLS - DML.
+    """
+    df = sd_table(summary_df).copy()
+    df["sd_diff"] = df["OLS"] - df["DML"]
+    return df
+
+def bias_diff_table(summary_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Build a scenario-level table of bias differences: OLS - DML.
+    """
+    df = bias_table(summary_df).copy()
+    df["bias_diff"] = df["OLS"] - df["DML"]
+    return df
 
 def bias_table(df: pd.DataFrame) -> pd.DataFrame:
     return metric_wide(df, "bias")
